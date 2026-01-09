@@ -12,6 +12,7 @@ include("StochPaths.jl")
 include("TreeApprox.jl")
 include("tree_approx_alloc_free.jl")
 include("tree_approx_alloc_free_buffer.jl")
+include("trees_plot.jl")
 
 export tree_approximation!,lattice_approximation,
         Tree, tree_approximation_alloc!,tree_approximation_alloc_buf!

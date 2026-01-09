@@ -8,7 +8,7 @@ rng = MersenneTwister(01012019);
 
 Returns a 'nx1' dimensional array of Gaussian random walk where n is determined by the length of out. 
 """
-function gaussian_path1D!(out::AbstractVector{Float64})
+function gaussian_path1D!(out::AbstractArray{Float64})
     s = 0.0
     @inbounds for i in eachindex(out)
         s += randn(rng)

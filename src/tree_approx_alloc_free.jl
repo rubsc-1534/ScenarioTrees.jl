@@ -11,16 +11,10 @@
         r=2,
     )
 """
-function tree_approximation_alloc!(
-    tree::Tree,
-    f,
-    nIterations::Int;
-    batchsize::Int = 32,
-    p::Int = 2,
-    r::Int = 2,
-)
+function tree_approximation_alloc!(tree::Tree,f,nIterations::Int;batchsize::Int = 32,p::Int = 2,r::Int = 2)
     T = height(tree)
     nleaf = size(tree.state, 1)
+    batchsize = min(nIterations,batchsize)
 
     # ---- Preallocation ----
     probaLeaf = zeros(Float64, nleaf)
@@ -41,14 +35,7 @@ function tree_approximation_alloc!(
 
         # Apply SA steps
         @inbounds for b = 1:batchsize
-            sa_step!(
-                tree,
-                view(samplepaths, b, :),
-                probaLeaf,
-                d,
-                p,
-                r,
-            )
+            sa_step!(tree,view(samplepaths, b, :),probaLeaf,d,p,r)
         end
     end
 
@@ -99,9 +86,7 @@ function sa_step!(trr::Tree, samplepath::SubArray{Float64},
     @inbounds for t = 2:T+1
         children = trr.structure.children[endleaf]
         bestdist = Inf
-        bestchild = endleaf
-        
-        
+        bestchild = endleaf       
 
         @inbounds for i in children
             @inbounds begin

@@ -21,6 +21,7 @@ end
 function tree_approximation_alloc_buf!(tree::Tree,f,nIterations::Int;batchsize::Int = 32,p::Int = 2,r::Int = 2)
     T = height(tree)
     nleaf = size(tree.state, 1)
+    batchsize = min(nIterations,batchsize)
 
     # ---- Preallocation ----
     probaLeaf = zeros(Float64, nleaf)
@@ -29,7 +30,6 @@ function tree_approximation_alloc_buf!(tree::Tree,f,nIterations::Int;batchsize::
     nBatches = cld(nIterations, batchsize)
 
     # ---- Create thread-local buffers ----
-    nthreads = Threads.nthreads()
     nbuf = Threads.maxthreadid()
 
 
@@ -69,7 +69,11 @@ function tree_approximation_alloc_buf!(tree::Tree,f,nIterations::Int;batchsize::
     end
 
     # ---- Reduction step (single-threaded, safe) ----
-    apply_buffers!(tree,buffers,probaLeaf,d)
+
+    
+    iter = batchsize * sum(getfield.(buffers, :used))
+    #apply_buffers!(tree,buffers,probaLeaf,d)
+    apply_buffers_parallel!(tree,buffers,probaLeaf,d,iter,p,r)
 
     # ---- Finalization ----
     leaf_idx = get_leaves(tree.structure)[1]
@@ -150,74 +154,68 @@ function sa_step_buffered!(
     dist_p = 0.0
     τ = 1
 
-    pathlen = offs[endleaf+1] - offs[endleaf]
-
-    idx = 1
     for k = offs[endleaf]:(offs[endleaf+1]-1)
         node = Pnodes[k]
-        buf.path_nodes[idx] = node
+        #buf.path_nodes[idx] = node
 
         @simd for j = 1:dim
             x = B[node, j] - A[τ]
-            #buf.grad[idx, j] = x        #grad update is saved per path with idx of length of path, this is why buffer for path is needed but still wrong
-            buf.newGrad[node,j] = x
+            buf.newGrad[node,j] += abs(x)^(p-1)*sign(x)
             dist_p += abs(x)^p
         end
-
-        idx += 1
         τ += 1
     end
-
-    dist = dist_p^(1/p)
-    buf.d_accum[endleaf] += dist^r
+    buf.d_accum[endleaf] += dist_p^(r/p)
 
     # -------------------------------
     # Gradient scaling (buffered)
     # -------------------------------
-    ak    = 1.0 / (30.0 + buf.leaf_count[endleaf])
-    coeff = r * dist^(r - p) * ak
+    #ak    = 1.0 / (30.0 + buf.leaf_count[endleaf])
+    #coeff = r * dist^(r - p) * ak
 
-    for k = offs[endleaf]:(offs[endleaf+1]-1)  #add inbounds later after fixing segfaults  
-        @simd for j = 1:dim
-            node = Pnodes[k]
-            x = buf.newGrad[node, j]
-            buf.newGrad[node, j] = -coeff * abs(x)^(p - 1) * sign(x)
-        end
-    end
-
-    #Gradient needs to be size of state. This is basically a resize
-    #nodes = Pnodes[offs[endleaf]:(offs[endleaf+1]-1)]
-    #buf.newGrad[nodes,:] = buf.grad[1:pathlen,:]
-
-    #buf.newGrad = stateLike[path,dim] = buf.grad[:,dim] #something like this is needed to not save the path in the struct
-
+    #for k = offs[endleaf]:(offs[endleaf+1]-1)  #add inbounds later after fixing segfaults  
+    #    @simd for j = 1:dim
+    #        node = Pnodes[k]
+    #        x = buf.newGrad[node, j]
+    #        buf.newGrad[node, j] += -coeff * abs(x)^(p - 1) * sign(x)
+    #    end
+    #end
     return nothing
 end
 
 
-function apply_buffers!(
-    tree::Tree,
-    buffers::Vector{SABuffer},
-    probaLeaf::Vector{Float64},
-    d::Vector{Float64},
-)
+function apply_buffers!(tree::Tree,buffers::Vector{SABuffer},probaLeaf::Vector{Float64},d::Vector{Float64})
     B = tree.state
     buffers = filter(buf -> buf.used, buffers)
     for buf in buffers
         probaLeaf .+= buf.leaf_count
-        d         .+= buf.d_accum
-        
+        d         .+= buf.d_accum        
         #currently buf.path_nodes saves only the first path ever; current setup requieres saving all paths (BAD!)
-        for i = 1:length(buf.path_nodes) #add inbounds later after fixing segfaults  
-            node = buf.path_nodes[i]
+        for node = 1:length(tree.state) #add inbounds later after fixing segfaults  
             @simd for j in axes(B,2)
-                B[node, j] += buf.grad[i, j]
+                B[node, j] += buf.newGrad[node, j]
             end
         end
 
         fill!(buf.leaf_count, 0.0)
         fill!(buf.d_accum, 0.0)
+        fill!(buf.newGrad, 0.0)
     end
 
     return nothing
+end
+
+function apply_buffers_parallel!(tree::Tree,buffers::Vector{SABuffer},probaLeaf,d,k::Int,p::Int,r::Int)
+    B = tree.state
+    ak = 1 / (30 + k)
+    @info "ak = $(1/(30+k))"
+    for buf in buffers
+        probaLeaf .+= buf.leaf_count
+        d         .+= buf.d_accum
+        B .-= ak .* buf.newGrad
+
+        fill!(buf.leaf_count, 0.0)
+        fill!(buf.d_accum, 0.0)
+        fill!(buf.newGrad, 0.0)
+    end
 end
