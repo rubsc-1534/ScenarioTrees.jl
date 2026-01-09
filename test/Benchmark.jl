@@ -1,6 +1,7 @@
 using BenchmarkTools
 
 trr = Tree(Int32[1,2,2,2])
+trr2 = Tree(Int32[1,2,2,2])
 #trr2 = Tree(Int32[1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2])
 #trr3 = Tree(Int32[1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,3,3,2,2])
 samplesize = 1_000_000
@@ -11,8 +12,8 @@ g = gaussian_path1D!
 
 # Warm-up runs to compile
 rng = MersenneTwister(01012019);
-@elapsed tree_approximation_alloc!(trr, g, 1_000_000;batchsize=batchsize, p=p, r=r)
-@elapsed tree_approximation_alloc_buf!(trr, g, 1_000_000;batchsize=batchsize, p=p, r=r) #creates segfaults and other crashes
+trr = tree_approximation_alloc!(trr, g, 1_000_000;batchsize=batchsize, p=p, r=r)
+trr2 = tree_approximation_alloc_buf!(trr2, g, 1_000_000;batchsize=batchsize, p=p, r=r) #creates segfaults and other crashes
 
 
 

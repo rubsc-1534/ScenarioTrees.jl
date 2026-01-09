@@ -1,8 +1,6 @@
 mutable struct SABuffer
     leaf_count :: Vector{Float64}   # size = nleaf
     d_accum    :: Vector{Float64}   # size = nleaf #accumulated distance in buffer
-    path_nodes :: Vector{Int32}       # size ≤ T+1
-    grad       :: Vector{Float64}   # (T+1) × state_dim
     newGrad    :: Matrix{Float64}   # state_dim × dim
     used
 end
@@ -37,12 +35,10 @@ function tree_approximation_alloc_buf!(tree::Tree,f,nIterations::Int;batchsize::
 
     buffers = [
         SABuffer(
-            zeros(Float64, nleaf),              # ΔprobaLeaf
-            zeros(Float64, nleaf),              # Δd
-            zeros(Int32,T+1),             # Δstate
-            zeros(Float64,size(T+1,1)),
-            zeros(Float64,size(tree.state,1),1),
-            false
+            zeros(Float64, nleaf),              # leaf_count
+            zeros(Float64, nleaf),              # d_accum
+            zeros(Float64,size(tree.state)),    # gradient
+            false                               # 
         )
         for _ in 1:nbuf #nthreads
     ]
@@ -155,8 +151,6 @@ function sa_step_buffered!(
     τ = 1
 
     pathlen = offs[endleaf+1] - offs[endleaf]
-    #resize!(buf.path_nodes, pathlen)
-    #resize!(buf.grad, pathlen)
 
     idx = 1
     for k = offs[endleaf]:(offs[endleaf+1]-1)
@@ -164,8 +158,9 @@ function sa_step_buffered!(
         buf.path_nodes[idx] = node
 
         @simd for j = 1:dim
-            x = B[node, j] - A[τ, j]
-            buf.grad[idx, j] = x        #grad update is saved per path with idx of length of path, this is why buffer for path is needed but still wrong
+            x = B[node, j] - A[τ]
+            #buf.grad[idx, j] = x        #grad update is saved per path with idx of length of path, this is why buffer for path is needed but still wrong
+            buf.newGrad[node,j] = x
             dist_p += abs(x)^p
         end
 
@@ -182,16 +177,17 @@ function sa_step_buffered!(
     ak    = 1.0 / (30.0 + buf.leaf_count[endleaf])
     coeff = r * dist^(r - p) * ak
 
-    for i = 1:pathlen  #add inbounds later after fixing segfaults  
+    for k = offs[endleaf]:(offs[endleaf+1]-1)  #add inbounds later after fixing segfaults  
         @simd for j = 1:dim
-            x = buf.grad[i, j]
-            buf.grad[i, j] = -coeff * abs(x)^(p - 1) * sign(x)
+            node = Pnodes[k]
+            x = buf.newGrad[node, j]
+            buf.newGrad[node, j] = -coeff * abs(x)^(p - 1) * sign(x)
         end
     end
 
     #Gradient needs to be size of state. This is basically a resize
-    nodes = Pnodes[offs[endleaf]:(offs[endleaf+1]-1)]
-    buf.newGrad[nodes,:] = buf.grad[1:pathlen,:]
+    #nodes = Pnodes[offs[endleaf]:(offs[endleaf+1]-1)]
+    #buf.newGrad[nodes,:] = buf.grad[1:pathlen,:]
 
     #buf.newGrad = stateLike[path,dim] = buf.grad[:,dim] #something like this is needed to not save the path in the struct
 
