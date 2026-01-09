@@ -10,7 +10,6 @@ include("TreeStructure.jl")
 include("StochPaths.jl")
 
 include("TreeApprox.jl")
-include("tree_approx_fast.jl")
 include("tree_approx_alloc_free.jl")
 include("tree_approx_alloc_free_buffer.jl")
 

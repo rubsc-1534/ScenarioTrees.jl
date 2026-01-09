@@ -1,0 +1,63 @@
+
+        
+Please submit a bug report with steps to reproduce this fault, and any error messages that follow (in their entirety). Thanks.
+Exception: EXCEPTION_ACCESS_VIOLATION at 0x7ffbc9a17da0 -- gc_try_claim_and_push at C:/workdir/src\gc-stock.c:1681
+in expression starting at c:\Users\qef\.julia\dev\ScenarioTrees\test\Benchmark.jl:6
+gc_try_claim_and_push at C:/workdir/src\gc-stock.c:1681
+gc_mark_outrefs at C:/workdir/src\gc-stock.c:2394 [inlined]
+gc_mark_loop_serial_ at C:/workdir/src\gc-stock.c:2517
+gc_mark_loop_serial at C:/workdir/src\gc-stock.c:2540
+gc_mark_loop at C:/workdir/src\gc-stock.c:2728 [inlined]
+_jl_gc_collect at C:/workdir/src\gc-stock.c:3073
+ijl_gc_collect at C:/workdir/src\gc-stock.c:3461
+maybe_collect at C:/workdir/src\gc-stock.c:349 [inlined]
+jl_gc_small_alloc_inner at C:/workdir/src\gc-stock.c:725 [inlined]
+jl_gc_small_alloc_noinline at C:/workdir/src\gc-stock.c:783 [inlined]
+jl_gc_alloc_ at C:/workdir/src\gc-stock.c:797
+jl_alloc_genericmemory_unchecked at C:/workdir/src\genericmemory.c:41
+GenericMemory at .\boot.jl:588 [inlined]
+array_new_memory at .\array.jl:1067 [inlined]
+#_growend!##0 at .\array.jl:1148
+_growend! at .\array.jl:1131 [inlined]
+_push! at .\array.jl:1292 [inlined]
+push! at .\array.jl:1289 [inlined]
+#Tree#16 at c:\Users\qef\.julia\dev\ScenarioTrees\src\TreeStructure.jl:60
+Tree at c:\Users\qef\.julia\dev\ScenarioTrees\src\TreeStructure.jl:38 [inlined]
+Tree at c:\Users\qef\.julia\dev\ScenarioTrees\src\TreeStructure.jl:38
+unknown function (ip: 00000222ce2e97db) at (unknown file)
+jl_apply at C:/workdir/src\julia.h:2391 [inlined]
+do_call at C:/workdir/src\interpreter.c:123
+eval_value at C:/workdir/src\interpreter.c:243
+eval_stmt_value at C:/workdir/src\interpreter.c:194 [inlined]
+eval_body at C:/workdir/src\interpreter.c:707
+jl_interpret_toplevel_thunk at C:/workdir/src\interpreter.c:898
+jl_toplevel_eval_flex at C:/workdir/src\toplevel.c:1035
+jl_toplevel_eval_flex at C:/workdir/src\toplevel.c:975
+ijl_toplevel_eval at C:/workdir/src\toplevel.c:1047 [inlined]
+ijl_toplevel_eval_in at C:/workdir/src\toplevel.c:1092
+eval at .\boot.jl:489
+include_string at .\loading.jl:2870
+jl_apply at C:/workdir/src\julia.h:2391 [inlined]
+jl_f_invokelatest at C:/workdir/src\builtins.c:881
+jl_apply at C:/workdir/src\julia.h:2391 [inlined]
+jl_f__apply_iterate at C:/workdir/src\builtins.c:868
+#inlineeval#60 at c:\Users\qef\.vscode\extensions\julialang.language-julia-1.170.2\scripts\packages\VSCodeServer\src\eval.jl:271
+inlineeval at c:\Users\qef\.vscode\extensions\julialang.language-julia-1.170.2\scripts\packages\VSCodeServer\src\eval.jl:268
+#repl_runcode_request##6 at c:\Users\qef\.vscode\extensions\julialang.language-julia-1.170.2\scripts\packages\VSCodeServer\src\eval.jl:181
+withpath at c:\Users\qef\.vscode\extensions\julialang.language-julia-1.170.2\scripts\packages\VSCodeServer\src\repl.jl:278
+#repl_runcode_request##4 at c:\Users\qef\.vscode\extensions\julialang.language-julia-1.170.2\scripts\packages\VSCodeServer\src\eval.jl:179
+hideprompt at c:\Users\qef\.vscode\extensions\julialang.language-julia-1.170.2\scripts\packages\VSCodeServer\src\repl.jl:38
+#repl_runcode_request##2 at c:\Users\qef\.vscode\extensions\julialang.language-julia-1.170.2\scripts\packages\VSCodeServer\src\eval.jl:150 [inlined]
+with_logstate at .\logging\logging.jl:540
+with_logger at .\logging\logging.jl:651 [inlined]
+#repl_runcode_request##0 at c:\Users\qef\.vscode\extensions\julialang.language-julia-1.170.2\scripts\packages\VSCodeServer\src\eval.jl:263
+unknown function (ip: 00000222ce2e2322) at (unknown file)
+jl_apply at C:/workdir/src\julia.h:2391 [inlined]
+jl_f_invokelatest at C:/workdir/src\builtins.c:881
+jl_apply at C:/workdir/src\julia.h:2391 [inlined]
+jl_f__apply_iterate at C:/workdir/src\builtins.c:868
+#start_eval_backend##0 at c:\Users\qef\.vscode\extensions\julialang.language-julia-1.170.2\scripts\packages\VSCodeServer\src\eval.jl:34
+unknown function (ip: 00000222fc09bb54) at (unknown file)
+jl_apply at C:/workdir/src\julia.h:2391 [inlined]
+start_task at C:/workdir/src\task.c:1249
+Allocations: 231661250 (Pool: 231657655; Big: 3595); GC: 148

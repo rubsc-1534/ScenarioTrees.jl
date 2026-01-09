@@ -1,8 +1,10 @@
-struct SABuffer
+mutable struct SABuffer
     leaf_count :: Vector{Float64}   # size = nleaf
-    d_accum    :: Vector{Float64}   # size = nleaf
+    d_accum    :: Vector{Float64}   # size = nleaf #accumulated distance in buffer
     path_nodes :: Vector{Int32}       # size ≤ T+1
     grad       :: Vector{Float64}   # (T+1) × state_dim
+    newGrad    :: Matrix{Float64}   # state_dim × dim
+    used
 end
 
 
@@ -38,7 +40,9 @@ function tree_approximation_alloc_buf!(tree::Tree,f,nIterations::Int;batchsize::
             zeros(Float64, nleaf),              # ΔprobaLeaf
             zeros(Float64, nleaf),              # Δd
             zeros(Int32,T+1),             # Δstate
-            zeros(Float64,size(T+1,1))
+            zeros(Float64,size(T+1,1)),
+            zeros(Float64,size(tree.state,1),1),
+            false
         )
         for _ in 1:nbuf #nthreads
     ]
@@ -49,6 +53,7 @@ function tree_approximation_alloc_buf!(tree::Tree,f,nIterations::Int;batchsize::
     Threads.@threads for x = 1:nBatches
         tid = Threads.threadid()
         buf = buffers[tid]
+        buf.used = true
 
         # optional progress output (safe enough)
         if tid == 1 && x % 10 == 0
@@ -62,7 +67,7 @@ function tree_approximation_alloc_buf!(tree::Tree,f,nIterations::Int;batchsize::
         end
 
         # ---- SA steps (buffered) ----
-        @inbounds for b = 1:batchsize
+        for b = 1:batchsize #add inbounds later after fixing segfaults
             sa_step_buffered!(tree,view(samplepaths, b, :),buf,p,r)
         end
     end
@@ -112,7 +117,7 @@ function sa_step_buffered!(
     # -------------------------------
     endleaf = 1
 
-    @inbounds for t = 2:T+1
+    for t = 2:T+1 #add inbounds later after fixing segfaults    
         bestdist  = Inf
         bestchild = endleaf
 
@@ -150,8 +155,8 @@ function sa_step_buffered!(
     τ = 1
 
     pathlen = offs[endleaf+1] - offs[endleaf]
-    resize!(buf.path_nodes, pathlen)
-    resize!(buf.grad, pathlen)
+    #resize!(buf.path_nodes, pathlen)
+    #resize!(buf.grad, pathlen)
 
     idx = 1
     for k = offs[endleaf]:(offs[endleaf+1]-1)
@@ -160,7 +165,7 @@ function sa_step_buffered!(
 
         @simd for j = 1:dim
             x = B[node, j] - A[τ, j]
-            buf.grad[idx, j] = x
+            buf.grad[idx, j] = x        #grad update is saved per path with idx of length of path, this is why buffer for path is needed but still wrong
             dist_p += abs(x)^p
         end
 
@@ -177,12 +182,18 @@ function sa_step_buffered!(
     ak    = 1.0 / (30.0 + buf.leaf_count[endleaf])
     coeff = r * dist^(r - p) * ak
 
-    @inbounds for i = 1:pathlen
+    for i = 1:pathlen  #add inbounds later after fixing segfaults  
         @simd for j = 1:dim
             x = buf.grad[i, j]
             buf.grad[i, j] = -coeff * abs(x)^(p - 1) * sign(x)
         end
     end
+
+    #Gradient needs to be size of state. This is basically a resize
+    nodes = Pnodes[offs[endleaf]:(offs[endleaf+1]-1)]
+    buf.newGrad[nodes,:] = buf.grad[1:pathlen,:]
+
+    #buf.newGrad = stateLike[path,dim] = buf.grad[:,dim] #something like this is needed to not save the path in the struct
 
     return nothing
 end
@@ -195,12 +206,13 @@ function apply_buffers!(
     d::Vector{Float64},
 )
     B = tree.state
-
+    buffers = filter(buf -> buf.used, buffers)
     for buf in buffers
         probaLeaf .+= buf.leaf_count
         d         .+= buf.d_accum
-
-        @inbounds for i = 1:length(buf.path_nodes)
+        
+        #currently buf.path_nodes saves only the first path ever; current setup requieres saving all paths (BAD!)
+        for i = 1:length(buf.path_nodes) #add inbounds later after fixing segfaults  
             node = buf.path_nodes[i]
             @simd for j in axes(B,2)
                 B[node, j] += buf.grad[i, j]
