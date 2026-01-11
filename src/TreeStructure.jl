@@ -3,6 +3,7 @@
 ##############################################################################
 
 struct TreeStructure
+    bs_structure :: Vector{Int32}
     parent   :: Vector{Int32}                  # parent[i] = parent of node i (0 for root)
     children :: Vector{Vector{Int32}}          # children[i] = children of node i
     stage    :: Vector{Int32}                  # stage (depth) of each node
@@ -66,7 +67,7 @@ function Tree(bstructure::Vector{Int32}, dimension::Int = 1; rng = Random.GLOBAL
 
     leaves = [i for i in 1:n_nodes if isempty(children[i])]
 
-    structure = TreeStructure(parent, children, stage, leaves)
+    structure = TreeStructure(bstructure, parent, children, stage, leaves)
 
     # ---- initialize data ----
     state  = randn(rng, n_nodes, dimension)
@@ -136,7 +137,7 @@ end
 
 
 """
-	nodes(trr::Tree,t=Int64[])
+	get_nodes(trr::Tree,t=Int64[])
 
 Returns the nodes in the tree, at stages t. Generally the range of the nodes in the tree.
 
@@ -144,9 +145,9 @@ Args:
 - trr - an instance of a Tree.
 - t  - stage in the tree.
 
-Example : nodes(trr,2) - gives all nodes at stage 2.
+Example : get_nodes(trr,2) - gives all nodes at stage 2.
 """
-function nodes(ts::TreeStructure, t=nothing)
+function get_nodes(ts::TreeStructure, t=nothing)
     if isnothing(t)
         return(1:length(ts.stage))
     else
@@ -396,7 +397,7 @@ Builds a PathBundle containing all root-to-leaf paths in the tree.
 """
 function build_paths(ts::TreeStructure)::PathBundle
     # Now calculate the path to all nodes as Vector(Vector(Int)) such that path_nodes[i] shows the way to i and stops there. 
-    tmp = [root_path(ts, Int32(j)) for j in nodes(ts)]
+    tmp = [root_path(ts, Int32(j)) for j in get_nodes(ts)]
 
     
     path_nodes, path_nodes_offset = Contiguous_paths(tmp)

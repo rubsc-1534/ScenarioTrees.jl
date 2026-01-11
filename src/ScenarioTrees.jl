@@ -18,7 +18,7 @@ export tree_approximation!,lattice_approximation,
         Tree, tree_approximation_alloc!,tree_approximation_alloc_buf!
 
 
-#        stage,height,leaves,nodes,root,
+#        stage,height,leaves,get_nodes,root,
 #        part_tree,build_probabilities!,
 #        gaussian_path1D,gaussian_path2D,
 #        running_maximum1D,running_maximum2D,path,kernel_scenarios, checkTree, 
