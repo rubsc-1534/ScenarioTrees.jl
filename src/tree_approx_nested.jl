@@ -7,7 +7,7 @@
 #    and transition probabilities (edge_prob). 
 
 
-using Clustering
+u#sing Clustering
 using LinearAlgebra
 using Statistics
 using CairoMakie
@@ -111,3 +111,4 @@ end
 #Example
 trr = Tree(Int32[1,2,2,2,2])
 tree_nested_approx!(trr::Tree,BMotion_sampler2)
+tree_plot(trr)

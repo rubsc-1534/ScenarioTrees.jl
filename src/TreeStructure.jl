@@ -399,10 +399,7 @@ function build_paths(ts::TreeStructure)::PathBundle
     # Now calculate the path to all nodes as Vector(Vector(Int)) such that path_nodes[i] shows the way to i and stops there. 
     tmp = [root_path(ts, Int32(j)) for j in get_nodes(ts)]
 
-    
     path_nodes, path_nodes_offset = Contiguous_paths(tmp)
-
-
     return PathBundle(path_nodes, path_nodes_offset)
 end
 

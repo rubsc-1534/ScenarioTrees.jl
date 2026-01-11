@@ -7,22 +7,15 @@ trr2 = Tree(Int32[1,2,2,2])
 samplesize = 1_000_000
 p = 2
 r = 2
-batchsize = 512 #512
+batchsize = 1024 #512
 g = gaussian_path1D!
 
 # Warm-up runs to compile
 rng = MersenneTwister(01012019);
-trr = tree_approximation_alloc!(trr, g, 1;batchsize=batchsize, p=p, r=r)
-rng = MersenneTwister(01012019);
-trr2 = tree_approximation_alloc_buf!(trr2, g, 1;batchsize=batchsize, p=p, r=r) #creates segfaults and other crashes
+trr = tree_approximation_alloc!(trr, g, samplesize;batchsize=batchsize, p=p, r=r)
 
-rng = MersenneTwister(01012019);
-tmp = [1.0, 1, 1,1]
-g(tmp)
-println(tmp)
-rng = MersenneTwister(01012019);
-g(tmp)
-println(tmp)
+tree_plot(trr)
+
 
 @benchmark tree_approximation_alloc!(
     tree,
@@ -44,4 +37,9 @@ if has_cuda()
     println("Number of Streaming Multiprocessors (SMs): ", sm_count)
 else
     println("No CUDA-enabled GPU found.")
+end
+
+
+for i in 1:length(trr.structure.children)
+    println(trr.structure.children[i])
 end

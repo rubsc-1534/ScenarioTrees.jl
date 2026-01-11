@@ -14,7 +14,7 @@
 function tree_approximation_alloc!(tree::Tree,f,nIterations::Int;batchsize::Int = 32,p::Int = 2,r::Int = 2)
     T = height(tree)
     nleaf = size(tree.state, 1)
-    batchsize = min(nIterations,batchsize)
+    #batchsize = min(nIterations,batchsize)
 
     # ---- Preallocation ----
     probaLeaf = zeros(Float64, nleaf)
