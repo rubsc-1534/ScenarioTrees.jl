@@ -7,7 +7,7 @@
 #    and transition probabilities (edge_prob). 
 
 
-u#sing Clustering
+#using Clustering
 using LinearAlgebra
 using Statistics
 using CairoMakie
@@ -108,7 +108,3 @@ function BMotion_sampler2(history::Vector)
     return(last(history)+randn())
 end
 
-#Example
-trr = Tree(Int32[1,2,2,2,2])
-tree_nested_approx!(trr::Tree,BMotion_sampler2)
-tree_plot(trr)
