@@ -2,6 +2,8 @@ using Random
 using Statistics
 using Printf
 using Distributions
+using CairoMakie
+using ScenarioTrees
 
 # ============================================================
 # SETTINGS
@@ -88,112 +90,146 @@ const BASE_Q = [
 # HELPER FUNCTIONS
 # ============================================================
 """
-Sample a random portfolio:
-- all lives start at age 65 (to stay exactly aligned with the earlier example)
-- each life gets a frailty multiplier
-  frailty > 1.0 => heavier mortality
-  frailty < 1.0 => lighter mortality
-Mean frailty is 1.0.
+Sample a random portfolio of frailty multipliers.
 """
-function sample_portfolio(rng::AbstractRNG, n_lives::Int, frailty_sigma::Float64)
-    # Lognormal parameterization chosen so E[frailty] = 1
+function sample_portfolio(
+    rng::AbstractRNG,
+    n_lives::Integer;
+    frailty_sigma::Float64 = FRAILTY_SIGMA,
+)
     mu = -0.5 * frailty_sigma^2
     frailty_dist = LogNormal(mu, frailty_sigma)
-    frailty = rand(rng, frailty_dist, n_lives)
-
-    return frailty
+    return rand(rng, frailty_dist, n_lives)
 end
 
 """
-Sample a random annual mortality-improvement path for one scenario.
-Each year's improvement rate is random but centered around 1.5%.
+Sample annual mortality improvement rates for a scenario.
 """
-function sample_mortality_improvement_path(rng::AbstractRNG, horizon::Int)
-    mi_dist = truncated(Normal(MI_MEAN, MI_SD), MI_LOWER, MI_UPPER)
+function sample_mortality_improvement_path(
+    rng::AbstractRNG,
+    horizon::Integer;
+    mi_mean::Float64 = MI_MEAN,
+    mi_sd::Float64 = MI_SD,
+    lower::Float64 = MI_LOWER,
+    upper::Float64 = MI_UPPER,
+)
+    mi_dist = truncated(Normal(mi_mean, mi_sd), lower, upper)
     return rand(rng, mi_dist, horizon)
 end
 
 """
-Simulate one scenario:
-1) select portfolio randomly (frailty factors)
-2) draw random annual mortality improvement path
-3) simulate deaths year by year
-
-Payment rule:
-- annuity is paid at end of year only if alive at end of that year
+Simulate one scenario for a fixed frailty portfolio.
 """
-function simulate_scenario(rng::AbstractRNG, n_lives::Int, frailty::Vector{Float64})
-    
+function simulate_scenario(
+    rng::AbstractRNG,
+    frailty::AbstractVector{<:Real};
+    horizon::Integer = HORIZON,
+    base_q::AbstractVector{<:Real} = BASE_Q,
+    mi_mean::Float64 = MI_MEAN,
+    mi_sd::Float64 = MI_SD,
+    mi_lower::Float64 = MI_LOWER,
+    mi_upper::Float64 = MI_UPPER,
+)
+    n_lives = length(frailty)
     alive = trues(n_lives)
-
-    deaths_by_year = zeros(Int, HORIZON)
-    survivors_at_payment = zeros(Int, HORIZON)
-
-    # cumulative improvement factor applied to base mortality
-    # year 1 => no prior improvement => factor = 1.0
+    deaths_by_year = zeros(Int, horizon)
+    survivors_at_payment = zeros(Int, horizon)
     cumulative_improvement_factor = 1.0
 
+    for t in 1:horizon
+        step = simulate_scenario_projection_step(
+            rng,
+            t,
+            frailty,
+            alive,
+            cumulative_improvement_factor,
+            deaths_by_year,
+            survivors_at_payment,
+            base_q;
+            mi_mean = mi_mean,
+            mi_sd = mi_sd,
+            mi_lower = mi_lower,
+            mi_upper = mi_upper,
+        )
 
-    for t in 1:HORIZON
-        one_step = simulate_scenario_projection_step(t, frailty,n_lives, alive, cumulative_improvement_factor, deaths_by_year, survivors_at_payment)
-        alive = one_step.alive
-        cumulative_improvement_factor = one_step.cumulative_improvement_factor
-        deaths_by_year = one_step.deaths_by_year
-        survivors_at_payment = one_step.survivors_at_payment
+        alive = step.alive
+        cumulative_improvement_factor = step.cumulative_improvement_factor
+        deaths_by_year = step.deaths_by_year
+        survivors_at_payment = step.survivors_at_payment
     end
 
     return (
         deaths_by_year = deaths_by_year,
-        survivors_at_payment = survivors_at_payment
+        survivors_at_payment = survivors_at_payment,
     )
 end
 
-function simulate_scenario_projection_step(t,frailty,n_lives,alive,cumulative_improvement_factor,deaths_by_year,survivors_at_payment)
-        mi_path = sample_mortality_improvement_path(rng, 1)
-        if t > 1
-            cumulative_improvement_factor *= (1.0 - mi_path[1])
-        end
-        # Actual mortality for each life in this year:
-        # base table * portfolio frailty * realized cumulative improvement
-        q_t = BASE_Q[t] .* frailty .* cumulative_improvement_factor
-
-        # Just for safety
-        q_t = clamp.(q_t, 0.0, 1.0)
-
-        # Simulate deaths during year t
-        u = rand(rng, n_lives)
-        die_this_year = alive .& (u .< q_t)
-
-        # Must survive the year to receive end-of-year annuity payment
-        survive_to_payment = alive .& .!die_this_year
-
-        deaths_by_year[t] = count(die_this_year)
-        survivors_at_payment[t] = count(survive_to_payment)
-
-        # Roll forward
-        alive = survive_to_payment
-        
-        return(alive=alive,
-        cumulative_improvement_factor=cumulative_improvement_factor,
-        deaths_by_year=deaths_by_year,
-        survivors_at_payment=survivors_at_payment)
-
+"""
+Simulate one projection year within a scenario.
+"""
+function simulate_scenario_projection_step(
+    rng::AbstractRNG,
+    year::Integer,
+    frailty::AbstractVector{<:Real},
+    alive::BitVector,
+    cumulative_improvement_factor::Float64,
+    deaths_by_year::Vector{Int},
+    survivors_at_payment::Vector{Int},
+    base_q::AbstractVector{<:Real};
+    mi_mean::Float64 = MI_MEAN,
+    mi_sd::Float64 = MI_SD,
+    mi_lower::Float64 = MI_LOWER,
+    mi_upper::Float64 = MI_UPPER,
+)
+    mi_rate = rand(rng, truncated(Normal(mi_mean, mi_sd), mi_lower, mi_upper))
+    if year > 1
+        cumulative_improvement_factor *= 1.0 - mi_rate
     end
+
+    q_t = clamp.(base_q[year] .* frailty .* cumulative_improvement_factor, 0.0, 1.0)
+    u = rand(rng, length(frailty))
+
+    die_this_year = alive .& (u .< q_t)
+    survive_to_payment = alive .& .!die_this_year
+
+    deaths_by_year[year] = count(die_this_year)
+    survivors_at_payment[year] = count(survive_to_payment)
+
+    return (
+        alive = survive_to_payment,
+        cumulative_improvement_factor = cumulative_improvement_factor,
+        deaths_by_year = deaths_by_year,
+        survivors_at_payment = survivors_at_payment,
+    )
+end
+
+
 
 # ============================================================
 # MAIN MONTE CARLO
 # ============================================================
 
-function run_simulation(; n_scenarios::Int=N_SCENARIOS, n_lives::Int=N_LIVES, seed::Int=SEED)
+function run_simulation(
+    ;
+    n_scenarios::Int = N_SCENARIOS,
+    n_lives::Int = N_LIVES,
+    horizon::Int = HORIZON,
+    seed::Int = SEED,
+    frailty_sigma::Float64 = FRAILTY_SIGMA,
+    base_q::AbstractVector{<:Real} = BASE_Q,
+)
     rng = MersenneTwister(seed)
+    deaths_matrix = zeros(Int, n_scenarios, horizon)
+    survivors_matrix = zeros(Int, n_scenarios, horizon)
 
-    deaths_matrix = zeros(Int, n_scenarios, HORIZON)
-    survivors_matrix = zeros(Int, n_scenarios, HORIZON)
-
-
-    frailty = sample_portfolio(rng, n_lives, FRAILTY_SIGMA)
     for s in 1:n_scenarios
-        result = simulate_scenario(rng, n_lives,frailty)
+        frailty = sample_portfolio(rng, n_lives; frailty_sigma = frailty_sigma)
+        result = simulate_scenario(
+            rng,
+            frailty;
+            horizon = horizon,
+            base_q = base_q,
+        )
 
         deaths_matrix[s, :] .= result.deaths_by_year
         survivors_matrix[s, :] .= result.survivors_at_payment
@@ -201,7 +237,7 @@ function run_simulation(; n_scenarios::Int=N_SCENARIOS, n_lives::Int=N_LIVES, se
 
     return (
         deaths_matrix = deaths_matrix,
-        survivors_matrix = survivors_matrix
+        survivors_matrix = survivors_matrix,
     )
 end
 
@@ -220,27 +256,24 @@ results = run_simulation()
 # Plot RESULTS
 # ============================================================
 
-
-function reserve_calculation(results)
+function reserve_calculation(results; benefit::Float64 = BENEFIT)
     survivors = results.survivors_matrix
-    reserves = cumsum(survivors,dims=2)*BENEFIT
-
+    return(survivors)
+    #return cumsum(survivors, dims = 2) .* benefit
 end
 
+reserves = reserve_calculation(results)
 
-# x-axis = projection year
-x = 1:size(survivors, 2)
+x = 1:size(reserves, 2)
 
-n_scenarios = size(survivors, 1)
-n_years = size(survivors, 2)
-
+n_scenarios = size(reserves, 1)
 
 fig = Figure(size = (900, 600))
 ax = Axis(
     fig[1, 1],
     xlabel = "Projection Year",
     ylabel = "Cumulative payments",
-    title = "Simulated Payment Paths"
+    title = "Simulated Payment Paths",
 )
 
 for i in 1:n_scenarios
@@ -249,10 +282,32 @@ end
 
 fig
 
+# ============================================================
+# TREE NESTED APPROXIMATION EXAMPLE
+# ============================================================
 
-  deaths_by_year = zeros(Int, HORIZON)
-    survivors_at_payment = zeros(Int, HORIZON)
+function run_tree_nested_example(
+    ;
+    structure::Vector{Int32} = Int32[1, 2, 2, 2, 2],
+    seed::Int = SEED,
+)
+    rng = MersenneTwister(seed)
+    trr = Tree(structure)
+    trr.state[1] = 1.0
 
-f() = simulate_scenario_projection_step(1,frailty,n_lives,trues(n_lives),1.0,deaths_by_year ,survivors_at_payment)[:survivors_at_payment][1]
-simulate_scenario_projection_step(t,frailty,n_lives,alive,cumulative_improvement_factor,deaths_by_year,survivors_at_payment)
-f()
+    sampler = history -> simulate_scenario_projection_sampler(
+        rng,
+        history;
+        base_q = BASE_Q,
+        mi_mean = MI_MEAN,
+        mi_sd = MI_SD,
+        mi_lower = MI_LOWER,
+        mi_upper = MI_UPPER,
+    )
+
+    tree_nested_approx!(trr, sampler)
+    return tree_plot(trr)
+end
+
+nested_fig = run_tree_nested_example()
+nested_fig
