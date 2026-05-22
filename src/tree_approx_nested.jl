@@ -7,7 +7,7 @@
 #    and transition probabilities (edge_prob). 
 
 
-#using Clustering
+using Clustering
 using LinearAlgebra
 using Statistics
 using CairoMakie

@@ -8,8 +8,8 @@ using Distributions
 # ============================================================
 
 const AGE0        = 65
-const HORIZON     = 10
-const BENEFIT     = 10_000.0
+const HORIZON     = 30
+const BENEFIT     = 1_000.0
 const DISCOUNT    = 0.03
 const V           = 1 / (1 + DISCOUNT)
 
@@ -34,41 +34,59 @@ const MI_UPPER    = 0.035      # +3.5%
 const FRAILTY_SIGMA = 0.20
 
 # Exact base mortality table from the deterministic example
-# Ages 65 to 74
+# Ages 65 to 110
 const BASE_Q = [
-    0.0100,  # age 65
-    0.0108,  # age 66
-    0.0117,  # age 67
-    0.0127,  # age 68
-    0.0139,  # age 69
-    0.0152,  # age 70
-    0.0167,  # age 71
-    0.0184,  # age 72
-    0.0203,  # age 73
-    0.0225   # age 74
+    0.0100, # age 65
+    0.0108, # age 66
+    0.0117, # age 67
+    0.0127, # age 68
+    0.0139, # age 69
+    0.0152, # age 70
+    0.0167, # age 71
+    0.0184, # age 72
+    0.0203, # age 73
+    0.0225, # age 74
+    0.0242, # age 75
+    0.0265, # age 76
+    0.0290, # age 77
+    0.0317, # age 78
+    0.0347, # age 79
+    0.0380, # age 80
+    0.0415, # age 81
+    0.0455, # age 82
+    0.0498, # age 83
+    0.0545, # age 84
+    0.0596, # age 85
+    0.0652, # age 86
+    0.0714, # age 87
+    0.0781, # age 88
+    0.0855, # age 89
+    0.0936, # age 90
+    0.1024, # age 91
+    0.1121, # age 92
+    0.1227, # age 93
+    0.1343, # age 94
+    0.1470, # age 95
+    0.1608, # age 96
+    0.1760, # age 97
+    0.1926, # age 98
+    0.2108, # age 99
+    0.2307, # age 100
+    0.2525, # age 101
+    0.2764, # age 102
+    0.3025, # age 103
+    0.3311, # age 104
+    0.3623, # age 105
+    0.3966, # age 106
+    0.4340, # age 107
+    0.4750, # age 108
+    0.5199, # age 109
+    0.5689  # age 110
 ]
 
 # ============================================================
 # HELPER FUNCTIONS
 # ============================================================
-
-"""
-Deterministic benchmark PV per life using the original 1.5% mortality improvement.
-This reproduces the earlier 10-year annuity example.
-"""
-function deterministic_pv_per_life(base_q::Vector{Float64}, mi_mean::Float64)
-    survival = 1.0
-    pv = 0.0
-
-    for t in 1:length(base_q)
-        q_t = base_q[t] * (1 - mi_mean)^(t - 1)
-        survival *= (1 - q_t)  # alive at payment date
-        pv += BENEFIT * survival * (V^t)
-    end
-
-    return pv
-end
-
 """
 Sample a random portfolio:
 - all lives start at age 65 (to stay exactly aligned with the earlier example)
@@ -100,44 +118,47 @@ Simulate one scenario:
 1) select portfolio randomly (frailty factors)
 2) draw random annual mortality improvement path
 3) simulate deaths year by year
-4) calculate discounted annuity PV
 
 Payment rule:
 - annuity is paid at end of year only if alive at end of that year
 """
-function simulate_scenario(rng::AbstractRNG, n_lives::Int)
-    frailty = sample_portfolio(rng, n_lives, FRAILTY_SIGMA)
-    mi_path = sample_mortality_improvement_path(rng, HORIZON)
-
+function simulate_scenario(rng::AbstractRNG, n_lives::Int, frailty::Vector{Float64})
+    
     alive = trues(n_lives)
 
-    pv = 0.0
     deaths_by_year = zeros(Int, HORIZON)
     survivors_at_payment = zeros(Int, HORIZON)
-    avg_q_by_year = zeros(Float64, HORIZON)
 
     # cumulative improvement factor applied to base mortality
     # year 1 => no prior improvement => factor = 1.0
     cumulative_improvement_factor = 1.0
 
-    for t in 1:HORIZON
-        if t > 1
-            cumulative_improvement_factor *= (1.0 - mi_path[t - 1])
-        end
 
+    for t in 1:HORIZON
+        one_step = simulate_scenario_projection_step(t, frailty,n_lives, alive, cumulative_improvement_factor, deaths_by_year, survivors_at_payment)
+        alive = one_step.alive
+        cumulative_improvement_factor = one_step.cumulative_improvement_factor
+        deaths_by_year = one_step.deaths_by_year
+        survivors_at_payment = one_step.survivors_at_payment
+    end
+
+    return (
+        deaths_by_year = deaths_by_year,
+        survivors_at_payment = survivors_at_payment
+    )
+end
+
+function simulate_scenario_projection_step(t,frailty,n_lives,alive,cumulative_improvement_factor,deaths_by_year,survivors_at_payment)
+        mi_path = sample_mortality_improvement_path(rng, 1)
+        if t > 1
+            cumulative_improvement_factor *= (1.0 - mi_path[1])
+        end
         # Actual mortality for each life in this year:
         # base table * portfolio frailty * realized cumulative improvement
         q_t = BASE_Q[t] .* frailty .* cumulative_improvement_factor
 
         # Just for safety
         q_t = clamp.(q_t, 0.0, 1.0)
-
-        # Track average actual q among currently alive lives
-        if any(alive)
-            avg_q_by_year[t] = mean(q_t[alive])
-        else
-            avg_q_by_year[t] = 0.0
-        end
 
         # Simulate deaths during year t
         u = rand(rng, n_lives)
@@ -149,23 +170,15 @@ function simulate_scenario(rng::AbstractRNG, n_lives::Int)
         deaths_by_year[t] = count(die_this_year)
         survivors_at_payment[t] = count(survive_to_payment)
 
-        # Discounted payment
-        pv += BENEFIT * (V^t) * survivors_at_payment[t]
-
         # Roll forward
         alive = survive_to_payment
-    end
+        
+        return(alive=alive,
+        cumulative_improvement_factor=cumulative_improvement_factor,
+        deaths_by_year=deaths_by_year,
+        survivors_at_payment=survivors_at_payment)
 
-    return (
-        pv = pv,
-        deaths_by_year = deaths_by_year,
-        survivors_at_payment = survivors_at_payment,
-        mi_path = mi_path,
-        avg_q_by_year = avg_q_by_year,
-        avg_frailty = mean(frailty),
-        portfolio_frailty = frailty
-    )
-end
+    end
 
 # ============================================================
 # MAIN MONTE CARLO
@@ -174,125 +187,72 @@ end
 function run_simulation(; n_scenarios::Int=N_SCENARIOS, n_lives::Int=N_LIVES, seed::Int=SEED)
     rng = MersenneTwister(seed)
 
-    scenario_pv = zeros(Float64, n_scenarios)
-    scenario_avg_frailty = zeros(Float64, n_scenarios)
-    scenario_avg_mi = zeros(Float64, n_scenarios)
-
     deaths_matrix = zeros(Int, n_scenarios, HORIZON)
     survivors_matrix = zeros(Int, n_scenarios, HORIZON)
-    avg_q_matrix = zeros(Float64, n_scenarios, HORIZON)
-    mi_matrix = zeros(Float64, n_scenarios, HORIZON)
 
-    first_scenario = nothing
 
+    frailty = sample_portfolio(rng, n_lives, FRAILTY_SIGMA)
     for s in 1:n_scenarios
-        result = simulate_scenario(rng, n_lives)
-
-        scenario_pv[s] = result.pv
-        scenario_avg_frailty[s] = result.avg_frailty
-        scenario_avg_mi[s] = mean(result.mi_path)
+        result = simulate_scenario(rng, n_lives,frailty)
 
         deaths_matrix[s, :] .= result.deaths_by_year
         survivors_matrix[s, :] .= result.survivors_at_payment
-        avg_q_matrix[s, :] .= result.avg_q_by_year
-        mi_matrix[s, :] .= result.mi_path
-
-        if s == 1
-            first_scenario = result
-        end
     end
 
-    deterministic_per_life = deterministic_pv_per_life(BASE_Q, MI_MEAN)
-    deterministic_portfolio = n_lives * deterministic_per_life
-
     return (
-        scenario_pv = scenario_pv,
-        scenario_avg_frailty = scenario_avg_frailty,
-        scenario_avg_mi = scenario_avg_mi,
         deaths_matrix = deaths_matrix,
-        survivors_matrix = survivors_matrix,
-        avg_q_matrix = avg_q_matrix,
-        mi_matrix = mi_matrix,
-        first_scenario = first_scenario,
-        deterministic_per_life = deterministic_per_life,
-        deterministic_portfolio = deterministic_portfolio
+        survivors_matrix = survivors_matrix
     )
 end
 
+
+
+
 # ============================================================
-# RUN AND PRINT RESULTS
+# RUN RESULTS
 # ============================================================
 
 results = run_simulation()
 
-pv = results.scenario_pv
 
-mean_pv = mean(pv)
-sd_pv   = std(pv)
-p05     = quantile(pv, 0.05)
-p50     = quantile(pv, 0.50)
-p95     = quantile(pv, 0.95)
 
-avg_deaths_by_year = vec(mean(results.deaths_matrix, dims=1))
-avg_survivors_by_year = vec(mean(results.survivors_matrix, dims=1))
-avg_q_by_year = vec(mean(results.avg_q_matrix, dims=1))
-avg_mi_by_year = vec(mean(results.mi_matrix, dims=1))
+# ============================================================
+# Plot RESULTS
+# ============================================================
 
-println("============================================================")
-println("STOCHASTIC PORTFOLIO ANNUITY SIMULATION")
-println("============================================================")
-@printf("Lives per portfolio                : %d\n", N_LIVES)
-@printf("Number of scenarios                : %d\n", N_SCENARIOS)
-@printf("Benefit per life per year          : %.2f\n", BENEFIT)
-@printf("Discount rate                      : %.2f%%\n", 100 * DISCOUNT)
-@printf("Target mean mortality improvement  : %.2f%%\n", 100 * MI_MEAN)
-println()
 
-println("Deterministic benchmark (same assumptions as earlier example)")
-@printf("PV per life                        : %.2f\n", results.deterministic_per_life)
-@printf("PV for %d lives                    : %.2f\n", N_LIVES, results.deterministic_portfolio)
-println()
+function reserve_calculation(results)
+    survivors = results.survivors_matrix
+    reserves = cumsum(survivors,dims=2)*BENEFIT
 
-println("Monte Carlo distribution of total portfolio PV")
-@printf("Mean PV                            : %.2f\n", mean_pv)
-@printf("Std dev PV                         : %.2f\n", sd_pv)
-@printf("5th percentile PV                  : %.2f\n", p05)
-@printf("Median PV                          : %.2f\n", p50)
-@printf("95th percentile PV                 : %.2f\n", p95)
-println()
-
-println("Average selected portfolio characteristics")
-@printf("Average frailty across scenarios   : %.6f\n", mean(results.scenario_avg_frailty))
-@printf("Average annual MI across scenarios : %.4f%%\n", 100 * mean(results.scenario_avg_mi))
-println()
-
-println("Average year-by-year experience across scenarios")
-println("Year   Avg MI    Avg actual q    Avg deaths    Avg survivors at payment")
-println("-----------------------------------------------------------------------")
-for t in 1:HORIZON
-    @printf(
-        "%4d   %6.3f%%    %10.6f    %10.2f    %24.2f\n",
-        t,
-        100 * avg_mi_by_year[t],
-        avg_q_by_year[t],
-        avg_deaths_by_year[t],
-        avg_survivors_by_year[t]
-    )
 end
 
-println()
-println("First scenario mortality improvement path")
-for t in 1:HORIZON
-    @printf("Year %2d MI = %6.3f%%\n", t, 100 * results.first_scenario.mi_path[t])
+
+# x-axis = projection year
+x = 1:size(survivors, 2)
+
+n_scenarios = size(survivors, 1)
+n_years = size(survivors, 2)
+
+
+fig = Figure(size = (900, 600))
+ax = Axis(
+    fig[1, 1],
+    xlabel = "Projection Year",
+    ylabel = "Cumulative payments",
+    title = "Simulated Payment Paths"
+)
+
+for i in 1:n_scenarios
+    lines!(ax, x, reserves[i, :], color = (:steelblue, 0.35), linewidth = 1)
 end
 
-println()
-println("First scenario deaths by year")
-for t in 1:HORIZON
-    @printf(
-        "Year %2d: deaths = %4d, survivors at payment = %4d\n",
-        t,
-        results.first_scenario.deaths_by_year[t],
-        results.first_scenario.survivors_at_payment[t]
-    )
-end
+fig
+
+
+  deaths_by_year = zeros(Int, HORIZON)
+    survivors_at_payment = zeros(Int, HORIZON)
+
+f() = simulate_scenario_projection_step(1,frailty,n_lives,trues(n_lives),1.0,deaths_by_year ,survivors_at_payment)[:survivors_at_payment][1]
+simulate_scenario_projection_step(t,frailty,n_lives,alive,cumulative_improvement_factor,deaths_by_year,survivors_at_payment)
+f()
