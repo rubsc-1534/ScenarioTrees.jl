@@ -1,10 +1,7 @@
 using Random
 using Statistics
-using Printf
 using Distributions
 using CairoMakie
-
-
 
 mutable struct MI_model
     age             :: Int64
@@ -25,8 +22,6 @@ mutable struct MI_model
     deaths_by_year  :: Vector{Int64}
     survivors_at_payment :: Vector{Int64}
 end
-
-
 
 # ============================================================
 # Setting parameters

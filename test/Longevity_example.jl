@@ -10,16 +10,6 @@ using CairoMakie
 include("Longevity_model_setup.jl")
 seed = 12345; rng = MersenneTwister(seed)
 
-frailty = sample_portfolio(N_LIVES; frailty_sigma = FRAILTY_SIGMA)
-
-MI_exa = MI_model(AGE0,HORIZON,BENEFIT,DISCOUNT,N_LIVES,N_SCENARIOS,MI_MEAN,MI_SD,MI_LOWER,MI_UPPER,frailty,BASE_Q,
-                            1,  #year
-                            trues(N_LIVES), #alive
-                            ones(HORIZON),  #improvement_factors
-                            zeros(Int,HORIZON),  #deaths_by_year
-                            ones(Int,HORIZON)*N_LIVES #survivors_at_payment
-                            )
-
 # ============================================================
 # ALGORITHM
 # ============================================================
@@ -216,8 +206,8 @@ function tree_nested_approx2!(trr::Tree,g)
     end
 end
 
-HORIZON = 30
-MI_exa = MI_model(AGE0,HORIZON,BENEFIT,DISCOUNT,N_LIVES,N_SCENARIOS,MI_MEAN,MI_SD,MI_LOWER,MI_UPPER,frailty,BASE_Q,
+HORIZON = 21
+MI_exa = MI_model(AGE0,HORIZON,BENEFIT,DISCOUNT,N_LIVES,N_SCENARIOS,MI_MEAN,MI_SD,MI_LOWER,MI_UPPER,zeros(N_LIVES),BASE_Q,
                             1,  #year
                             trues(N_LIVES), #alive
                             ones(HORIZON),  #improvement_factors
@@ -225,6 +215,6 @@ MI_exa = MI_model(AGE0,HORIZON,BENEFIT,DISCOUNT,N_LIVES,N_SCENARIOS,MI_MEAN,MI_S
                             ones(Int,HORIZON)*N_LIVES #survivors_at_payment
                             )
 
-trr = Tree(Int32[1;fill(2,29)])
+trr = Tree(Int32[1;fill(2,20)])
 tree_nested_approx2!(trr::Tree,projection_step_wrapper)
 tree_plot(trr)
