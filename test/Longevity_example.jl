@@ -72,16 +72,17 @@ end
 # ============================================================
 # Calculating dynamic risk measures
 # ============================================================
-start_stage = maximum(trr.structure.stage)-1
+start_stage = maximum(trr2.structure.stage)-1
 beta = 1.0
 
 for s=start_stage:-1:0 #going backward through all relevant stages
-    nodes_idx = findall(x -> x == s, trr.structure.stage)
+    nodes_idx = findall(x -> x == s, trr2.structure.stage)
     for idx in nodes_idx
-        children_nodes = trr.structure.children[idx]
-        state = trr.state[children_nodes]
-        prob = trr.p_edge[children_nodes]
-        trr.state[idx] = MeanSD(state,prob,beta)
+        children_nodes = trr2.structure.children[idx]
+        state = trr2.state[children_nodes]
+        prob = trr2.p_edge[children_nodes]
+        trr2.state[idx] = MeanSD(state,prob,beta)
     end
 end
 
+tree_plot(trr2)

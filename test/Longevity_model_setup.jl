@@ -49,16 +49,16 @@ MI_MEAN     = 0.015      # 1.5%
 
 # Volatility around mortality improvement assumption
 # You can tune this if you want more / less randomness
-MI_SD       = 0.005      # 0.5% standard deviation
+MI_SD       = 0.05      # 5.0% standard deviation
 
 # Truncation bounds to keep annual improvement in a sensible range
 MI_LOWER    = -0.005     # -0.5%
-MI_UPPER    = 0.035      # +3.5%
+MI_UPPER    = 0.055      # +5.5%
 
 # Portfolio selection randomness:
 # Frailty multiplier with mean 1.0
 # If sigma is larger, the selected portfolios vary more from average mortality
-FRAILTY_SIGMA = 0.20
+FRAILTY_SIGMA = 0.02
 
 # Exact base mortality table from the deterministic example
 # Ages 65 to 110
