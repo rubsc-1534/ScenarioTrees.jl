@@ -73,7 +73,7 @@ end
 # Calculating dynamic risk measures
 # ============================================================
 start_stage = maximum(trr2.structure.stage)-1
-beta = 1.0
+beta = 0.0
 
 for s=start_stage:-1:0 #going backward through all relevant stages
     nodes_idx = findall(x -> x == s, trr2.structure.stage)
