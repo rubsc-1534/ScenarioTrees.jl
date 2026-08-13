@@ -581,4 +581,94 @@ function Tree(identifier::Int64)
 
 
 
+"""
+    merge_trees(tree1::Tree, tree2::Tree; name::String = "")
 
+Merges two scenario trees of equal depth. Each node at stage `t` in `tree1` 
+is paired with all nodes at stage `t` in `tree2`.
+"""
+function merge_trees(trr1::Tree, trr2::Tree; name::String = "")
+    ts1 = trr1.structure
+    ts2 = trr2.structure
+
+    num_stages = length(ts1.bs_structure)
+    @assert num_stages == length(ts2.bs_structure) "Both trees must have the same number of stages."
+
+    # 1. Merged branching structure: [1, 3, 3] .* [1, 2, 2] -> [1, 6, 6]
+    bs_merged = ts1.bs_structure .* ts2.bs_structure
+    merged_name = isempty(name) ? "$(trr1.name)_$(trr2.name)" : name
+
+    # Instantiate template tree structure
+    trr_multi = Tree(bs_merged)
+
+    # 2. Storage for combined properties
+    merged_state = Float64[]
+    merged_p_edge = Float64[]
+    merged_p_cum = Float64[]
+
+    # Stage 1: Root node pairing (1, 1)
+    current_pairs = [(1, 1)]
+    push!(merged_state, trr1.state[1] * trr2.state[1])
+    push!(merged_p_edge, trr1.p_edge[1] * trr2.p_edge[1])
+    push!(merged_p_cum, trr1.p_cum[1] * trr2.p_cum[1])
+
+    # Index and node-count tracking
+    idx1_start, idx2_start = 1, 1
+    n_nodes1, n_nodes2 = 1, 1
+
+    # Stage 2 to T
+    for t in 2:num_stages
+        b1 = ts1.bs_structure[t]
+        b2 = ts2.bs_structure[t]
+
+        # Advance start indices to current stage t
+        idx1_start += n_nodes1
+        idx2_start += n_nodes2
+
+        # Start indices of previous stage t-1
+        prev_idx1_start = idx1_start - n_nodes1
+        prev_idx2_start = idx2_start - n_nodes2
+
+        # Update node counts for current stage
+        n_nodes1 *= b1
+        n_nodes2 *= b2
+
+        next_pairs = Tuple{Int, Int}[]
+
+        # Expand children parent-by-parent in exact tree traversal order
+        for (p1, p2) in current_pairs
+            # Local 0-based offset of parent node within stage t-1
+            k1 = p1 - prev_idx1_start
+            k2 = p2 - prev_idx2_start
+
+            # Absolute index ranges of children in trr1 and trr2
+            ch1_range = (idx1_start + k1 * b1):(idx1_start + (k1 + 1) * b1 - 1)
+            ch2_range = (idx2_start + k2 * b2):(idx2_start + (k2 + 1) * b2 - 1)
+
+            for c1 in ch1_range
+                for c2 in ch2_range
+                    push!(next_pairs, (c1, c2))
+                    
+                    # State multiplication
+                    push!(merged_state, trr1.state[c1] * trr2.state[c2])
+                    
+                    # Independent probability multiplication
+                    push!(merged_p_edge, trr1.p_edge[c1] * trr2.p_edge[c2])
+                    push!(merged_p_cum, trr1.p_cum[c1] * trr2.p_cum[c2])
+                end
+            end
+        end
+
+        current_pairs = next_pairs
+    end
+    paths = build_paths(trr_multi.structure)
+    return Tree(
+        merged_name,
+        trr_multi.structure,
+        paths,
+        reshape(merged_state,:,1),
+        merged_p_edge,
+        merged_p_cum,
+        1.0
+    )
+end

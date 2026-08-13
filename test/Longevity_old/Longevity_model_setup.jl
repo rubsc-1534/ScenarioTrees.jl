@@ -5,10 +5,10 @@ using CairoMakie
 using Clustering
 using DataFrames
 
-include("..//src//TreeStructure.jl")
-include("..//src//StochPaths.jl")
-include("..//src//tree_approx_nested.jl")
-include("..//src//trees_plot.jl")
+include("..//..//src//TreeStructure.jl")
+include("..//../src//StochPaths.jl")
+include("..//..//src//tree_approx_nested.jl")
+include("..//..//src//trees_plot.jl")
 
 
 mutable struct MI_model
