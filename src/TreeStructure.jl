@@ -608,7 +608,7 @@ function merge_trees(trr1::Tree, trr2::Tree; name::String = "")
 
     # Stage 1: Root node pairing (1, 1)
     current_pairs = [(1, 1)]
-    push!(merged_state, trr1.state[1] * trr2.state[1])
+    push!(merged_state, 1-(1-trr2.state[1])^(exp(-trr1.state[1]) ))
     push!(merged_p_edge, trr1.p_edge[1] * trr2.p_edge[1])
     push!(merged_p_cum, trr1.p_cum[1] * trr2.p_cum[1])
 
@@ -650,7 +650,8 @@ function merge_trees(trr1::Tree, trr2::Tree; name::String = "")
                     push!(next_pairs, (c1, c2))
                     
                     # State multiplication
-                    push!(merged_state, trr1.state[c1] * trr2.state[c2])
+                    #push!(merged_state, trr1.state[c1] * trr2.state[c2])
+                    push!(merged_state, 1-(1-trr2.state[c2])^(exp(-trr1.state[c1]) ))
                     
                     # Independent probability multiplication
                     push!(merged_p_edge, trr1.p_edge[c1] * trr2.p_edge[c2])
