@@ -129,7 +129,7 @@ end
 Random.seed!(42)
 trr = Tree(Int32[1;fill(2,5)])
 tree_nested_approx2!(trr::Tree,projection_step_wrapper)
-figMI = tree_plot(trr,title="Mortality improvements per stage",density=false)
+figMI = tree_plot2(trr,title="Mortality improvements per stage",density=false)
 save("figMI.png",figMI, update=false) 
 
 trr1 = deepcopy(trr)
@@ -138,7 +138,7 @@ trr1 = deepcopy(trr)
 for i=2:length(trr1.state)
     trr1.state[i] += trr1.state[trr1.structure.parent[i]]
 end
-figcumMI = tree_plot(trr1,title="Cumulative mortality improvement process",density=false)
+figcumMI = tree_plot2(trr1,title="Cumulative mortality improvement process",density=false)
 save("figcumMI.png",figcumMI, update=false) 
 
 ##############################
@@ -161,7 +161,7 @@ save("figQx.png",figQx, update=false)
 #################
 # Multiplication of trees
 Mtrr = merge_trees(trr1,trr2,name="Test_multiplication")
-figMerge = tree_plot(Mtrr, title="qx process under mortality improvements",density=false)
+figMerge = tree_plot2(Mtrr, title="qx process under mortality improvements",density=false)
 save("MergedTree.png",figMerge, update=false) 
 
 
@@ -215,8 +215,10 @@ function tree_to_survivor_tree(tree::Tree, qx_col::Int = 1, N0::Float64 = 1000.0
 end
 
 S_tree=tree_to_survivor_tree(Mtrr, 1, 100.0)
-fig_SurvivorTree = tree_plot(S_tree,title="Survivor process",density=false)
+fig_SurvivorTree = tree_plot2(S_tree,title="Survivor process",density=false)
 save("SurvivorTree.png",fig_SurvivorTree, update=false)
+
+
 
 payout_tree = deepcopy(S_tree);
 # Summing payments over time. Process now shows cumulative payments. 

@@ -310,7 +310,7 @@ Each subtree:
 """
 function partition_tree(tr::Tree, t::Int)
 
-    ts = tr.struct
+    ts = tr.structure
     roots = findall(==(t), ts.stage)
 
     subtrees = Vector{Tree}(undef, length(roots))
