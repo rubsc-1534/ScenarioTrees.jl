@@ -78,10 +78,6 @@ function projection_step_wrapper(history::Vector{Float64},MI_test)
 end
 
 function simulate_scenario_projection_step(phi_last,MI_test)
-    #phi_bar = 0.015     # Long-term mean improvement rate (1.5%)
-    #kappa = 0.1      # Speed of mean reversion
-    #sigma_phi = 0.15   # Volatility of the structural trend
-    #dt = 1    
     Z = randn(1)
     dW = sqrt(MI_test.dt) * Z
     # Euler-Maruyama discretization for OU process
@@ -102,31 +98,24 @@ Computes the number of survivors (lx) at each node of the tree.
 function compute_survivors(tree::Tree, qx_col::Int = 1, N0::Float64 = 1000.0)
     n_nodes = length(tree.structure.parent)
     survivors = zeros(Float64, n_nodes)
-    
     # Root node initial population
     survivors[1] = N0
-    
     # Traverse nodes in topological order
     for i in 2:n_nodes
         p = tree.structure.parent[i]
-        
         # Mortality rate during the transition from parent node p
         qx = tree.state[p, qx_col]
-        
         # Survivor propagation: lx_child = lx_parent * (1 - qx)
         survivors[i] = survivors[p] * (1.0 - qx)
     end
-    
     return survivors
 end
 
 
 function tree_to_survivor_tree(tree::Tree, qx_col::Int = 1, N0::Float64 = 1000.0)
     survivors = compute_survivors(tree, qx_col, N0)
-    
     # Create new state matrix with lx values
     new_state = reshape(survivors, :, 1)
-    
     return Tree(
         tree.name * " [Survivors]",
         tree.structure,
@@ -141,7 +130,6 @@ end
 # ============================================================
 # Risk measures
 # ============================================================
-
 function MeanSD(state,prob,beta,p)
     tmp = sum(state.*prob)
     mSD = tmp + beta * (sum(max.(state.-tmp,0).^p .* prob))^(1/p)

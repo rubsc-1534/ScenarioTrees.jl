@@ -18,21 +18,18 @@ struct MI_param
     phi_bar::Float64     # Long-term mean improvement rate (1.5%)
     kappa::Float64        # Speed of mean reversion
     sigma_phi::Float64   # Volatility of the structural trend
-    T::Int            # Simulation horizon (years)
-    dt::Float64           # Time step (monthly)
-    N_paths::Int   # Number of Monte Carlo trajectories
+    T::Int            # Simulation horizon
+    dt::Float64           # Time step 
+    N_paths::Int   # Number of MC trajectories
     seed::Int
 end
 
 MI_test = MI_param(0.015,0.015,0.1,0.15,5,12/12,100,42)
 
 
-# --- RUNNING THE SIMULATION ---
-println("Running Monte Carlo longevity simulation (10,000 paths)...")
 time_grid, phi_paths, Y_paths = simulate_pure_stochastic_longevity(phi_0,phi_bar,kappa,sigma_phi,T,dt,N_paths,seed)
 
-# --- VISUALIZATION ---
-# Plot 1: mortality Improvement (phi_t) Paths (Sample 100 paths)
+# Plot 1: mortality Improvement (phi_t) Paths
 fig = Figure(size = (800, 600))
 ax = Axis(fig[1, 1],title = "Mortality Improvement paths (φ_t)",xlabel = "Years from Valuation",
     ylabel = "Stagewise Improvement")
@@ -44,18 +41,17 @@ fig
 save("plots/MI_paths.png",fig)
 
 
-#Now create new tree for just the improvement factors
-    #for this one step or conditional simulation functions have to be defined given state Y_t and phi_t what happens
-# phi_t+1 and Y_t+1 and all future periods??
+#Create tree process approximating the Ornstein-Uhlenbeck process
 Random.seed!(42)
 trr = Tree(Int32[1;fill(2,5)])
 tree_nested_approx2!(trr::Tree,projection_step_wrapper)
 figMI = tree_plot2(trr,title="Mortality improvements per stage",density=false)
 save("figMI.png",figMI, update=false) 
 
-trr1 = deepcopy(trr)
+
+
 #Get the cumulative improvement factors
-#trr1.state[1] = 0.0
+trr1 = deepcopy(trr)
 for i=2:length(trr1.state)
     trr1.state[i] += trr1.state[trr1.structure.parent[i]]
 end
@@ -86,14 +82,15 @@ figMerge = tree_plot2(Mtrr, title="qx process under mortality improvements",dens
 save("MergedTree.png",figMerge, update=false) 
 
 
-
+#Survivor process
 S_tree=tree_to_survivor_tree(Mtrr, 1, 100.0)
 fig_SurvivorTree = tree_plot2(S_tree,title="Survivor process",density=false)
 save("SurvivorTree.png",fig_SurvivorTree, update=false)
 
 
+
+# Summing payments over time. Process now shows cumulative payments.
 payout_tree = deepcopy(S_tree);
-# Summing payments over time. Process now shows cumulative payments. 
 for i = 2:length(payout_tree.state)
     payout_tree.state[i] += payout_tree.state[payout_tree.structure.parent[i]]
 end
@@ -121,6 +118,10 @@ end
 fig_BE_reserveTree = tree_plot2(Reserve_tree, title="Best estimate reserving process",density=false)
 save("BE_ReserveTree.png",fig_BE_reserveTree, update=false)
 
+
+# ============================================================
+# Calculating dynamic risk measures mean semi deviation
+# ============================================================
 Reserve_tree2 = deepcopy(payout_tree)
 start_stage = maximum(Reserve_tree2.structure.stage)-1
 beta = 0.995
