@@ -6,10 +6,6 @@ using CairoMakie
 using Clustering
 using DataFrames
 
-include("..//src//TreeStructure.jl")
-include("..//src//StochPaths.jl")
-include("..//src//tree_approx_nested.jl")
-include("..//src//trees_plot.jl")
 include("ARC_Longevity_setup.jl")
 #########################################################
 #Setting up parameters
@@ -25,10 +21,10 @@ struct MI_param
 end
 
 MI_test = MI_param(0.015,0.015,0.1,0.15,5,12/12,100,42)
+#########################################################
 
 
-time_grid, phi_paths, Y_paths = simulate_pure_stochastic_longevity(phi_0,phi_bar,kappa,sigma_phi,T,dt,N_paths,seed)
-
+time_grid, phi_paths, Y_paths = simulate_pure_stochastic_longevity(MI_test)
 # Plot 1: mortality Improvement (phi_t) Paths
 fig = Figure(size = (800, 600))
 ax = Axis(fig[1, 1],title = "Mortality Improvement paths (φ_t)",xlabel = "Years from Valuation",
@@ -42,9 +38,9 @@ save("plots/MI_paths.png",fig)
 
 
 #Create tree process approximating the Ornstein-Uhlenbeck process
-Random.seed!(42)
+Random.seed!(MI_test.seed)
 trr = Tree(Int32[1;fill(2,5)])
-tree_nested_approx2!(trr::Tree,projection_step_wrapper)
+tree_nested_approx2!(trr::Tree,projection_step_wrapper,MI_test)
 figMI = tree_plot2(trr,title="Mortality improvements per stage",density=false)
 save("plots/figMI.png",figMI, update=false) 
 

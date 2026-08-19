@@ -11,27 +11,27 @@ include("..//src//StochPaths.jl")
 include("..//src//tree_approx_nested.jl")
 include("..//src//trees_plot.jl")
 ########################################################
-function simulate_pure_stochastic_longevity(phi_0,phi_bar,kappa,sigma_phi,T,dt,N_paths,seed)
-    Random.seed!(seed)
-    N_steps = round(Int, T / dt) + 1
-    time_grid = range(0, T, length=N_steps)
+function simulate_pure_stochastic_longevity(MI_param)
+    Random.seed!(MI_param.seed)
+    N_steps = round(Int, MI_param.T / MI_param.dt) + 1
+    time_grid = range(0, MI_param.T, length=N_steps)
 
     # 1. Simulate improvement rate phi_t (OU Process)
-    phi = zeros(N_paths, N_steps)
-    phi[:, 1] .= phi_0
+    phi = zeros(MI_param.N_paths, N_steps)
+    phi[:, 1] .= MI_param.phi_0
     
     # Pre-generate standard normal noise
-    Z = randn(N_paths, N_steps - 1)
+    Z = randn(MI_param.N_paths, N_steps - 1)
     
     for i in 2:N_steps
-        dW = sqrt(dt) .* Z[:, i-1]
+        dW = sqrt(MI_param.dt) .* Z[:, i-1]
         # Euler-Maruyama discretization for OU process
-        phi[:, i] = phi[:, i-1] .+ kappa .* (phi_bar .- phi[:, i-1]) .* dt .+ sigma_phi .* dW
+        phi[:, i] = phi[:, i-1] .+ MI_param.kappa .* (MI_param.phi_bar .- phi[:, i-1]) .* MI_param.dt .+ MI_param.sigma_phi .* dW
     end
     
     # 2. Cumulative Improvement Y_t = ∫ φ_s ds
     # Because there's no short-term noise, Y_t is purely the smooth integral of phi_t
-    Y = cumsum(phi .* dt, dims=2)
+    Y = cumsum(phi .* MI_param.dt, dims=2)
     
     return time_grid, phi, Y
 end
@@ -39,7 +39,7 @@ end
 # ============================================================
 # TREE NESTED APPROXIMATION adjusted for this example
 # ============================================================
-function tree_nested_approx2!(trr::Tree,g)
+function tree_nested_approx2!(trr::Tree,g,MI_test)
     stages = 1:height(trr)
 
     # Step size (Robbins–Monro)
@@ -54,7 +54,7 @@ function tree_nested_approx2!(trr::Tree,g)
         for k in nodes
             println("Evaluation node $k in stage $s")
             history = trr.state[root_path(trr.structure,Int32(k))] #provides states of path until node k as a vector
-            f() = g(history,s) #just defines the cond. sampling function
+            f() = g(history,MI_test) #just defines the cond. sampling function
 
             children = trr.structure.children[k] #get indices for nodes being updated in this round
             b = length(children)    #number of nodes to be simulated in this round
