@@ -46,7 +46,7 @@ Random.seed!(42)
 trr = Tree(Int32[1;fill(2,5)])
 tree_nested_approx2!(trr::Tree,projection_step_wrapper)
 figMI = tree_plot2(trr,title="Mortality improvements per stage",density=false)
-save("figMI.png",figMI, update=false) 
+save("plots/figMI.png",figMI, update=false) 
 
 
 
@@ -56,7 +56,7 @@ for i=2:length(trr1.state)
     trr1.state[i] += trr1.state[trr1.structure.parent[i]]
 end
 figcumMI = tree_plot2(trr1,title="Cumulative mortality improvement process",density=false)
-save("figcumMI.png",figcumMI, update=false) 
+save("plots/figcumMI.png",figcumMI, update=false) 
 
 ##############################
 # BASE_Qx Volatility
@@ -73,19 +73,19 @@ for i in unique(trr2.structure.parent)
 
 end
 figQx=tree_plot2(trr2, title="Base qx process",density=false)
-save("figQx.png",figQx, update=false) 
+save("plots/figQx.png",figQx, update=false) 
 
 #################
 # Multiplication of trees
 Mtrr = merge_trees(trr1,trr2,name="Test_multiplication")
 figMerge = tree_plot2(Mtrr, title="qx process under mortality improvements",density=false)
-save("MergedTree.png",figMerge, update=false) 
+save("plots/MergedTree.png",figMerge, update=false) 
 
 
 #Survivor process
 S_tree=tree_to_survivor_tree(Mtrr, 1, 100.0)
 fig_SurvivorTree = tree_plot2(S_tree,title="Survivor process",density=false)
-save("SurvivorTree.png",fig_SurvivorTree, update=false)
+save("plots/SurvivorTree.png",fig_SurvivorTree, update=false)
 
 
 
@@ -95,7 +95,7 @@ for i = 2:length(payout_tree.state)
     payout_tree.state[i] += payout_tree.state[payout_tree.structure.parent[i]]
 end
 fig_payout = tree_plot2(payout_tree,title="Payout process",density=false)
-save("payoutTree.png",fig_payout, update=false) 
+save("plots/payoutTree.png",fig_payout, update=false) 
 
 
 # ============================================================
@@ -116,7 +116,7 @@ for s=start_stage:-1:0 #going backward through all relevant stages
 end
 
 fig_BE_reserveTree = tree_plot2(Reserve_tree, title="Best estimate reserving process",density=false)
-save("BE_ReserveTree.png",fig_BE_reserveTree, update=false)
+save("plots/BE_ReserveTree.png",fig_BE_reserveTree, update=false)
 
 
 # ============================================================
@@ -137,4 +137,4 @@ for s=start_stage:-1:0 #going backward through all relevant stages
 end
 
 fig_risk_reserveTree = tree_plot2(Reserve_tree2, title="Risk-averse reserving process",density=false)
-save("risk_ReserveTree.png",fig_risk_reserveTree, update=false) 
+save("plots/risk_ReserveTree.png",fig_risk_reserveTree, update=false) 
