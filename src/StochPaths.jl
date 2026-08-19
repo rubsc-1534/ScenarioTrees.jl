@@ -17,6 +17,38 @@ function gaussian_path1D!(out::AbstractVector{Float64})
     out[1] = 0.0
     return nothing
 end
+"""
+	running_maximum1D()
+
+Returns a '4x1' dimensional array of Running Maximum process.
+"""
+function running_maximum1D!(out::AbstractVector{Float64})
+    s = 0.0
+    @inbounds for i in eachindex(out)
+        s += randn(rng)
+        out[i] = max.(s,out[i-1])
+    end
+    out[1] =0.0
+    return nothing
+end
+
+
+"""
+	gaussian_path1D(out::AbstractVector{Float64})
+
+Returns a 'nx1' dimensional array of Gaussian random walk where n is determined by the length of out. 
+"""
+function gaussian_path1D(n=4)
+    s = 0.0
+    out = zeros(n)
+    @inbounds for i in eachindex(out)
+        s += randn(rng)
+        out[i] = s
+    end
+    out[1] = 0.0
+    return nothing
+end
+
 
 """
 	gaussian_path2D()
@@ -41,6 +73,8 @@ function running_maximum1D(n=4)
     end
     return rmatrix
 end
+
+
 
 """
 	running_maximum2D()
