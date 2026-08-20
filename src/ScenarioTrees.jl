@@ -16,7 +16,8 @@ include("trees_plot.jl")
 
 export tree_approximation!,lattice_approximation,
         Tree, tree_approximation_alloc!,tree_approximation_alloc_buf!,
-        merge_trees
+        merge_trees, gaussian_path1D,gaussian_path1D!, running_maximum1D, 
+        get_stage, get_nodes,running_maximum1D!,get_leaves,height
 
 
 #        stage,height,leaves,get_nodes,root,

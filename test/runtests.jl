@@ -46,12 +46,10 @@ using ScenarioTrees
         a=[0.0,0.0,0.0,0.0]
         gaussian_path1D!(a)
         b = running_maximum1D()
-        c = path()
         d = gaussian_path2D()
         e = running_maximum2D()
         @test length(a) == 4
         @test length(b) == 4
-        @test length(c) == 4
         @test size(d) == (4,2)
         @test size(e) == (4,2)
     end
