@@ -1,5 +1,6 @@
 #using ScenarioTrees
 using Test
+using ScenarioTrees
 
 @testset "ScenarioTrees.jl" begin
     @testset "Predefined tree - Tree 402" begin
