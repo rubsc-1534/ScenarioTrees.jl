@@ -62,8 +62,7 @@ using ScenarioTrees
 
         for path in paths
             for newtree in trees
-                f = path
-                tree_approximation_alloc!(newtree,f,samplesize,p=p,r=r)
+                tree_approximation_alloc!(newtree,path,samplesize,p=p,r=r)
                 @test length(newtree.structure.parent) == length(newtree.state)
                 @test length(newtree.structure.parent) == length(newtree.p_edge)
                 @test length(get_stage(newtree)) == length(newtree.structure.parent)

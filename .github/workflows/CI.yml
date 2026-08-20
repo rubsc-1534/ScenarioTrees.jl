@@ -23,7 +23,6 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.11'
           - '1.12'
           - 'pre'
         os:
@@ -37,5 +36,5 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v2
-      - uses: julia-actions/julia-buildpkg@v1
-      - uses: julia-actions/julia-runtest@v1
+      - uses: julia-actions/julia-buildpkg@v2
+      - uses: julia-actions/julia-runtest@v2
