@@ -63,14 +63,11 @@ using ScenarioTrees
         for path in paths
             for newtree in trees
                 f = path
-                #tree_approximation!(newtree,()->path(4),samplesize,p,r)
                 tree_approximation_alloc!(newtree,f,samplesize,p=p,r=r)
                 @test length(newtree.structure.parent) == length(newtree.state)
                 @test length(newtree.structure.parent) == length(newtree.p_edge)
                 @test length(get_stage(newtree)) == length(newtree.structure.parent)
                 @test height(newtree) == maximum(get_stage(newtree))
-                #@test round(sum(get_leaves(newtree)[3]),digits=1) == 1.0   #sum of unconditional probabilities of the leaves
-                #@test length(root(newtree)) == 1
             end
         end
     end
